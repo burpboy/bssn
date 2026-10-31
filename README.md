@@ -1,6 +1,6 @@
 Panduan Lengkap Menjalankan CVE BSSN Toolkit Dari Dwi Joko Purwanto 
 
-Berdasarkan main.py dan requirements.txt, ini bukan proyek Python biasa — ini adalah toolkit pentest multi-mode dengan guardrails. Berikut panduan lengkapnya.
+. Berikut panduan lengkapnya.
 
 ---
 
