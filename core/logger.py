@@ -1,6 +1,6 @@
 """
 logger.py - Logging Standar & Chain of Evidence (JSONL)
-Versi: 1.0.1
+Versi: 1.0.2
 Status: Production Ready / Offensive Safe
 """
 
@@ -102,7 +102,7 @@ class ChainOfEvidenceLogger:
         self.logger.info(f"Logger initialized. Log file: {self.log_file_path}")
 
     # =========================================================================
-    # METHOD WRAPPERS (TAMBAHAN UNTUK MEMPERBAIKI ERROR)
+    # METHOD WRAPPERS (Agar bisa dipanggil langsung seperti logger.info())
     # =========================================================================
     def info(self, msg, *args, **kwargs):
         self.logger.info(msg, *args, **kwargs)
@@ -188,3 +188,14 @@ class ChainOfEvidenceLogger:
         self.logger.handle(record)
         
         return entry
+
+
+# ==========================================
+# FUNGSI HELPER UNTUK IMPORT DI main.py
+# ==========================================
+def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl") -> ChainOfEvidenceLogger:
+    """
+    Fungsi helper untuk menginisialisasi dan mengembalikan instance logger.
+    Ini yang dicari oleh main.py saat melakukan import.
+    """
+    return ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
