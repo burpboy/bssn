@@ -1,6 +1,6 @@
 """
 logger.py - Logging Standar & Chain of Evidence (JSONL)
-Versi: 1.0.2
+Versi: 1.0.3
 Status: Production Ready / Offensive Safe
 """
 
@@ -199,3 +199,10 @@ def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_eviden
     Ini yang dicari oleh main.py saat melakukan import.
     """
     return ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
+
+def get_logger() -> ChainOfEvidenceLogger:
+    """
+    Fungsi helper untuk mendapatkan instance logger yang sudah ada.
+    Dibutuhkan oleh main.py untuk import.
+    """
+    return ChainOfEvidenceLogger()
