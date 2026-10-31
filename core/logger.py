@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 logger.py - Logging Standar & Chain of Evidence (JSONL)
-Versi: 1.0.0
+Versi: 1.0.1 (Fixed Syntax Error)
 Status: Production Ready / Offensive Safe
 
 Fitur Utama:
@@ -84,7 +86,7 @@ class ChainOfEvidenceLogger:
     def __init__(self, log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl"):
         if self._initialized:
             return
-            
+        
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_file_path = self.log_dir / log_file_name
@@ -105,8 +107,8 @@ class ChainOfEvidenceLogger:
             console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
             self.logger.addHandler(console_handler)
             
-        self._initialized = True
-        self.logger.info(f"Logger initialized. Log file: {self.log_file_path}")
+            self._initialized = True
+            self.logger.info(f"Logger initialized. Log file: {self.log_file_path}")
 
     def log_event(
         self, 
@@ -145,7 +147,7 @@ class ChainOfEvidenceLogger:
                 entry["payload_hash"] = EvidenceHasher.calculate_hash(payload_data)
             except Exception as e:
                 entry["payload_hash_error"] = str(e)
-                
+        
         # Siapkan record logging
         record_kwargs = {
             'module': event_type,
@@ -157,7 +159,7 @@ class ChainOfEvidenceLogger:
         
         if extra:
             record_kwargs['extra_dict'] = extra
-            
+        
         # Tentukan level log berdasarkan risk_level untuk prioritas
         if risk_level == "critical":
             log_level = logging.CRITICAL
@@ -167,9 +169,77 @@ class ChainOfEvidenceLogger:
             log_level = logging.WARNING
         else:
             log_level = logging.INFO
-            
+        
         # Create a custom LogRecord to inject extra fields
+        # Kita menggunakan method bawaan logging untuk membuat record
         record = self.logger.makeRecord(
             self.logger.name,
             log_level,
-            "(
+            "(root)", # Filename
+            0,        # Line number placeholder
+            f"{event_type}: {message}", # Message
+            (),       # Args
+            None,     # Exc info
+            None,     # sinfo
+            **record_kwargs # Extra attributes
+        )
+        
+        # Format the record
+        formatted_message = self.logger.handlers[0].format(record)
+        
+        # Write to file directly to ensure atomicity if needed, though handler does it too
+        # But we want to return the structured data immediately
+        try:
+            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+                f.write(formatted_message + '\n')
+        except Exception as e:
+            print(f"[!] Failed to write to log file: {e}", file=sys.stderr)
+            
+        # Also log to standard logger for console output
+        self.logger.handle(record)
+        
+        return entry
+
+    def close(self):
+        """Clean up handlers."""
+        for handler in self.logger.handlers[:]:
+            handler.close()
+            self.logger.removeHandler(handler)
+        self._initialized = False
+        self._instance = None
+
+
+# Global instance
+_logger_instance = None
+
+def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl", verbose: bool = False):
+    """
+    Factory function untuk mendapatkan instance logger global.
+    
+    Args:
+        log_dir: Direktori untuk menyimpan log.
+        log_file_name: Nama file log.
+        verbose: Jika True, set level ke DEBUG, jika tidak INFO.
+        
+    Returns:
+        Instance ChainOfEvidenceLogger
+    """
+    global _logger_instance
+    
+    if _logger_instance is None or not _logger_instance._initialized:
+        _logger_instance = ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
+        
+        # Adjust verbosity
+        if verbose:
+            _logger_instance.logger.setLevel(logging.DEBUG)
+        else:
+            _logger_instance.logger.setLevel(logging.INFO)
+            
+    return _logger_instance
+
+def get_logger():
+    """Get current logger instance."""
+    global _logger_instance
+    if _logger_instance is None:
+        return setup_logger()
+    return _logger_instance
