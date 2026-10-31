@@ -245,3 +245,70 @@ python3 main.py --mode scan   --target https://lab.local -v
 python3 main.py --mode probe  --target https://lab.local -v
 python3 main.py --mode exploit --target https://lab.local --payload default -v   # ⚠️ LAB ONLY
 ```
+
+
+Cara Running Dasar — CVE BSSN Toolkit
+
+Versi paling singkat, tanpa teori. Anggap Anda sudah di VM lab.
+
+---
+
+1. Clone & Masuk
+
+```bash
+git clone https://github.com/burpboy/bssn.git
+cd bssn
+```
+
+2. Buat & Aktifkan Virtual Environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Windows: venv\Scripts\activate
+
+3. Install Dependensi
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Cek Dulu Bisa Jalan
+
+```bash
+python3 main.py --help
+```
+
+Kalau muncul daftar opsi (--mode, --target, dll) → berhasil, lanjut.
+
+Kalau muncul [!] Error loading dependencies → folder core/, modules/, atau modules_offensive/ tidak lengkap. Berhenti di sini.
+
+5. Jalankan Mode Dasar (Paling Aman)
+
+```bash
+python3 main.py --mode scan --target https://target-lab-anda.com -v
+```
+
+Itu saja. Ini perintah running paling dasar.
+
+---
+
+Ringkasan 5 Baris
+
+```bash
+git clone https://github.com/burpboy/bssn.git && cd bssn
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python3 main.py --help
+python3 main.py --mode scan --target https://target-lab-anda.com -v
+```
+
+---
+
+Catatan:
+
+· Ganti https://target-lab-anda.com dengan URL target Anda (harus lab/milik sendiri).
+· Mode scan = paling aman. Mode probe dan exploit menyusul setelah scan berhasil.
+· Jika --help sudah error, jangan lanjut — masalahnya di struktur folder repo, bukan di perintah Anda.
