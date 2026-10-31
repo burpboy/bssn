@@ -133,7 +133,8 @@ class AppConfig:
         # API Keys dari Env
         api_key_env = os.getenv("BSSN_API_KEY")
         if api_key_env:
-            self.api_keys["default"] = api_key_key
+            # BUG FIX: Sebelumnya tertulis 'api_key_key', seharusnya 'api_key_env'
+            self.api_keys["default"] = api_key_env 
             
         # Payload Dir Override
         env_payloads = os.getenv("BSSN_PAYLOADS_DIR")
