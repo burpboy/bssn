@@ -1,6 +1,6 @@
 """
 logger.py - Logging Standar & Chain of Evidence (JSONL)
-Versi: 1.0.3
+Versi: 1.0.4
 Status: Production Ready / Offensive Safe
 """
 
@@ -47,11 +47,9 @@ class JSONLFormatter(logging.Formatter):
             "extra": {}
         }
 
-        # Include extra fields if provided and enabled
         if self.include_extra_fields and hasattr(record, 'extra_dict'):
             log_data["extra"].update(record.extra_dict)
         
-        # Filter out None values for cleaner logs
         log_data = {k: v for k, v in log_data.items() if v is not None}
         
         return json.dumps(log_data, ensure_ascii=False, default=str)
@@ -82,11 +80,9 @@ class ChainOfEvidenceLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_file_path = self.log_dir / log_file_name
         
-        # Setup standard logger
         self.logger = logging.getLogger("BSSN_Evidence")
         self.logger.setLevel(logging.DEBUG)
         
-        # Prevent duplicate handlers if re-initialized
         if not self.logger.handlers:
             # File Handler (JSONL)
             file_handler = logging.FileHandler(self.log_file_path, mode='a', encoding='utf-8')
@@ -102,7 +98,7 @@ class ChainOfEvidenceLogger:
         self.logger.info(f"Logger initialized. Log file: {self.log_file_path}")
 
     # =========================================================================
-    # METHOD WRAPPERS (Agar bisa dipanggil langsung seperti logger.info())
+    # METHOD WRAPPERS
     # =========================================================================
     def info(self, msg, *args, **kwargs):
         self.logger.info(msg, *args, **kwargs)
@@ -129,9 +125,7 @@ class ChainOfEvidenceLogger:
         payload_data: Optional[Union[str, bytes]] = None,
         extra: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """
-        Mencatat satu event lengkap dengan metadata chain of evidence.
-        """
+        
         entry = {
             "event_type": event_type,
             "message": message,
@@ -140,14 +134,12 @@ class ChainOfEvidenceLogger:
             "payload_hash": None
         }
         
-        # Hitung hash jika ada payload
         if payload_data:
             try:
                 entry["payload_hash"] = EvidenceHasher.calculate_hash(payload_data)
             except Exception as e:
                 entry["payload_hash_error"] = str(e)
                 
-        # Siapkan record logging
         record_kwargs = {
             'module': event_type,
             'action': event_type,
@@ -159,7 +151,6 @@ class ChainOfEvidenceLogger:
         if extra:
             record_kwargs['extra_dict'] = extra
             
-        # Tentukan level log berdasarkan risk_level untuk prioritas
         if risk_level == "critical":
             log_level = logging.CRITICAL
         elif risk_level == "high":
@@ -169,7 +160,6 @@ class ChainOfEvidenceLogger:
         else:
             log_level = logging.INFO
             
-        # Create a custom LogRecord to inject extra fields
         record = self.logger.makeRecord(
             self.logger.name,
             log_level,
@@ -180,11 +170,9 @@ class ChainOfEvidenceLogger:
             None
         )
         
-        # Inject custom attributes into the record
         for key, value in record_kwargs.items():
             setattr(record, key, value)
             
-        # Handle the record
         self.logger.handle(record)
         
         return entry
@@ -193,16 +181,22 @@ class ChainOfEvidenceLogger:
 # ==========================================
 # FUNGSI HELPER UNTUK IMPORT DI main.py
 # ==========================================
-def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl") -> ChainOfEvidenceLogger:
+def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl", verbose: bool = False) -> ChainOfEvidenceLogger:
     """
     Fungsi helper untuk menginisialisasi dan mengembalikan instance logger.
-    Ini yang dicari oleh main.py saat melakukan import.
+    Ditambahkan parameter 'verbose' agar sesuai dengan pemanggilan di main.py.
     """
-    return ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
+    logger_instance = ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
+    
+    if verbose:
+        for handler in logger_instance.logger.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                handler.setLevel(logging.DEBUG)
+                
+    return logger_instance
 
 def get_logger() -> ChainOfEvidenceLogger:
     """
     Fungsi helper untuk mendapatkan instance logger yang sudah ada.
-    Dibutuhkan oleh main.py untuk import.
     """
     return ChainOfEvidenceLogger()
