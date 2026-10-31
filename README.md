@@ -1,4 +1,4 @@
-Panduan Lengkap Menjalankan CVE BSSN Toolkit
+Panduan Lengkap Menjalankan CVE BSSN Toolkit Dari Dwi Joko Purwanto 
 
 Berdasarkan main.py dan requirements.txt, ini bukan proyek Python biasa — ini adalah toolkit pentest multi-mode dengan guardrails. Berikut panduan lengkapnya.
 
@@ -288,7 +288,7 @@ Kalau muncul [!] Error loading dependencies → folder core/, modules/, atau mod
 5. Jalankan Mode Dasar (Paling Aman)
 
 ```bash
-python3 main.py --mode scan --target https://target-lab-anda.com -v
+python3 main.py --mode exploit --target https://www.bssn.go.id -v
 ```
 
 Itu saja. Ini perintah running paling dasar.
