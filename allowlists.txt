@@ -1,0 +1,50 @@
+# ==========================================================
+# allowlist.txt
+# ----------------------------------------------------------
+# WAJIB DIISI SEBELUM MENJALANKAN MODE: probe / exploit
+# Format 1 baris = 1 target
+# Mendukung: domain, IP, CIDR, wildcard subdomain
+# Komentar diawali dengan '#'
+# ==========================================================
+
+# ----------------------------------------------------------
+# [1] LINGKUNGAN LAB LOKAL (WAJIB UNTUK PENGUJIAN)
+# ----------------------------------------------------------
+127.0.0.1
+localhost
+::1
+
+# Docker network (default bridge / custom subnet lab)
+172.17.0.0/16
+
+# Contoh: target lab docker-compose (WordPress, dll)
+# wp-lab.local
+# elementor-lab.local
+# aioseo-lab.local
+# astra-lab.local
+# 192.168.56.10
+
+# ----------------------------------------------------------
+# [2] TARGET MILIK SENDIRI / RESMI (Hanya jika punya izin)
+# ----------------------------------------------------------
+# Contoh domain pribadi yang sudah diverifikasi
+# example.com
+# staging.example.com
+# *.dev.example.com
+# 203.0.113.10
+
+# ----------------------------------------------------------
+# [3] TARGET DENGAN IZIN TERTULIS (Bug Bounty / Kontrak)
+# ----------------------------------------------------------
+# HANYA tambahkan jika ada dokumen izin resmi
+# *.target-bounty.com
+# api.target-bounty.com
+# 198.51.100.0/24
+
+# ----------------------------------------------------------
+# [4] DAFTAR BLOKIR EKSPLISIT (opsional, tapi disarankan)
+# ----------------------------------------------------------
+# Format: blokir diawali tanda '!' (tidak akan pernah dieksekusi)
+# !production.example.com
+# !10.0.0.0/8
+# !0.0.0.0/0

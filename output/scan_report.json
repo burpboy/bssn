@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "tool": "cve_pentest_bssn",
+    "version": "1.0.0",
+    "mode": "scan",
+    "scan_id": "scan-20250115-093012-a1b2c3",
+    "started_at": "2025-01-15T09:30:12+07:00",
+    "finished_at": "2025-01-15T09:31:48+07:00",
+    "duration_seconds": 96,
+    "target": "https://lab-target.local",
+    "operator": "pentester@local"
+  },
+  "recon": {
+    "cms": "WordPress",
+    "wp_version": "6.4.2",
+    "server": "nginx/1.24.0",
+    "php_version": "8.1.27",
+    "themes": [
+      { "name": "astra", "version": "4.6.3", "active": true }
+    ],
+    "plugins": [
+      { "name": "elementor-pro", "version": "3.18.1", "active": true },
+      { "name": "all-in-one-seo-pack", "version": "4.4.9", "active": true }
+    ],
+    "headers": {
+      "x-envoy-upstream-service-time": "12",
+      "server": "envoy"
+    }
+  },
+  "findings": [
+    {
+      "id": "F-001",
+      "module": "elementor.py",
+      "cve": "CVE-2024-XXXXX",
+      "title": "Elementor Pro RCE via plugin upload",
+      "severity": "critical",
+      "cvss": 9.8,
+      "component": "elementor-pro",
+      "detected_version": "3.18.1",
+      "affected_range": "< 3.18.2",
+      "status": "vulnerable",
+      "evidence_ref": "evidence/logs/elementor_20250115.log",
+      "recommendation": "Upgrade Elementor Pro ke >= 3.18.2"
+    },
+    {
+      "id": "F-002",
+      "module": "aioseo.py",
+      "cve": "CVE-2024-YYYYY",
+      "title": "AIOSEO SQL Injection (authenticated)",
+      "severity": "high",
+      "cvss": 8.1,
+      "component": "all-in-one-seo-pack",
+      "detected_version": "4.4.9",
+      "affected_range": "< 4.5.0",
+      "status": "potentially_vulnerable",
+      "evidence_ref": "evidence/logs/aioseo_20250115.log",
+      "recommendation": "Upgrade AIOSEO ke >= 4.5.0"
+    },
+    {
+      "id": "F-003",
+      "module": "astra.py",
+      "cve": "CVE-2024-ZZZZZ",
+      "title": "Astra Theme privilege escalation",
+      "severity": "medium",
+      "cvss": 6.5,
+      "component": "astra",
+      "detected_version": "4.6.3",
+      "affected_range": "< 4.6.4",
+      "status": "not_vulnerable",
+      "evidence_ref": null,
+      "recommendation": "Tidak ada tindakan mendesak"
+    }
+  ],
+  "summary": {
+    "total_findings": 3,
+    "critical": 1,
+    "high": 1,
+    "medium": 1,
+    "low": 0,
+    "info": 0
+  }
+}

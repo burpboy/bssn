@@ -1,0 +1,192 @@
+version: '3.8'
+
+# Network global untuk komunikasi antar container lab
+networks:
+  bssn_lab_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+services:
+  # ==========================================
+  # TARGET 1: WordPress + Elementor (CVE RCE Focus)
+  # ==========================================
+  wp-elementor:
+    image: wordpress:6.4-apache
+    container_name: bssn_wp_elementor
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.10
+    environment:
+      WORDPRESS_DB_HOST: db-elementor
+      WORDPRESS_DB_USER: bssn_user
+      WORDPRESS_DB_PASSWORD: bssn_pass_123
+      WORDPRESS_DB_NAME: bssn_db_elementor
+    volumes:
+      - wp-elementor-data:/var/www/html
+      - ./lab/targets/wp-content/plugins:/var/www/html/wp-content/plugins # Mount volume untuk modifikasi plugin manual jika perlu
+    ports:
+      - "8001:80"
+    depends_on:
+      db-elementor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/wp-login.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  db-elementor:
+    image: mariadb:10.6
+    container_name: bssn_db_elementor
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.11
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass_123
+      MYSQL_DATABASE: bssn_db_elementor
+      MYSQL_USER: bssn_user
+      MYSQL_PASSWORD: bssn_pass_123
+    volumes:
+      - db-elementor-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass_123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==========================================
+  # TARGET 2: WordPress + AIOSEO (SQLi Focus)
+  # ==========================================
+  wp-aioseo:
+    image: wordpress:6.4-apache
+    container_name: bssn_wp_aioseo
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.20
+    environment:
+      WORDPRESS_DB_HOST: db-aioseo
+      WORDPRESS_DB_USER: bssn_user
+      WORDPRESS_DB_PASSWORD: bssn_pass_123
+      WORDPRESS_DB_NAME: bssn_db_aioseo
+    volumes:
+      - wp-aioseo-data:/var/www/html
+    ports:
+      - "8002:80"
+    depends_on:
+      db-aioseo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/wp-login.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  db-aioseo:
+    image: mariadb:10.6
+    container_name: bssn_db_aioseo
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.21
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass_123
+      MYSQL_DATABASE: bssn_db_aioseo
+      MYSQL_USER: bssn_user
+      MYSQL_PASSWORD: bssn_pass_123
+    volumes:
+      - db-aioseo-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass_123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==========================================
+  # TARGET 3: WordPress + Astra Theme (Privesc Focus)
+  # ==========================================
+  wp-astra:
+    image: wordpress:6.4-apache
+    container_name: bssn_wp_astra
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.30
+    environment:
+      WORDPRESS_DB_HOST: db-astra
+      WORDPRESS_DB_USER: bssn_user
+      WORDPRESS_DB_PASSWORD: bssn_pass_123
+      WORDPRESS_DB_NAME: bssn_db_astra
+    volumes:
+      - wp-astra-data:/var/www/html
+    ports:
+      - "8003:80"
+    depends_on:
+      db-astra:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/wp-login.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  db-astra:
+    image: mariadb:10.6
+    container_name: bssn_db_astra
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.31
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass_123
+      MYSQL_DATABASE: bssn_db_astra
+      MYSQL_USER: bssn_user
+      MYSQL_PASSWORD: bssn_pass_123
+    volumes:
+      - db-astra-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass_123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==========================================
+  # KONTAINER TOOLKIT (Tempat menjalankan main.py)
+  # ==========================================
+  bssn-toolkit:
+    build:
+      context: .
+      dockerfile: Dockerfile.toolkit # Asumsi Anda punya file ini, jika tidak, gunakan python:3.10-slim
+    image: notrack/bssn-toolkit:latest
+    container_name: bssn_toolkit
+    networks:
+      bssn_lab_net:
+        ipv4_address: 172.20.0.100
+    volumes:
+      - .:/app # Mount seluruh direktori project agar perubahan kode langsung terbaca
+      - ./output:/app/output # Persistensi output scan
+      - ./evidence:/app/evidence
+    command: >
+      bash -c "
+        pip install -r requirements.txt &&
+        echo 'Toolkit siap. Gunakan: python main.py --mode=scan --target=http://wp-elementor:80'
+      "
+    # Agar bisa diakses dari luar, kita mapping port CLI/API jika ada
+    ports:
+      - "5000:5000" # Contoh jika ada API endpoint
+    depends_on:
+      - wp-elementor
+      - wp-aioseo
+      - wp-astra
+
+volumes:
+  wp-elementor-data:
+  db-elementor-data:
+  wp-aioseo-data:
+  db-aioseo-data:
+  wp-astra-data:
+  db-astra-data:

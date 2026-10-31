@@ -1,0 +1,28 @@
+# Core Dependencies for CVE BSSN Toolkit
+# Pastikan Python versi 3.8+ digunakan
+
+# HTTP Client & Web Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0  # Parser backend yang lebih cepat untuk BeautifulSoup (opsional tapi direkomendasikan)
+
+# Template Engine untuk Report Generator
+Jinja2>=3.1.2
+
+# Offensive Tools & Reverse Shell Management
+pwntools>=4.12.0
+paramiko>=3.3.0  # Diperlukan oleh pwntools untuk SSH/SFTP support jika ada eskalasi via SSH
+
+# Logging & UI Enhancement
+colorama>=0.4.6
+tqdm>=4.65.0
+
+# Data Validation & Config (Jika config.py menggunakan validasi tipe)
+pydantic>=2.4.0  # Opsional, tapi sangat disarankan untuk struktur data yang aman di core/
+
+# Utility Tambahan
+urllib3>=1.26.0  # Dependency bawaan requests, tapi bagus untuk pinning versi yang stabil
+
+# Optional: Jika ada modul yang butuh DNS WHOIS atau IP geolocation
+python-whois>=0.6.0
+geoip2>=4.8.0

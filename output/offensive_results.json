@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "tool": "cve_pentest_bssn",
+    "mode": "probe",
+    "probe_id": "probe-20250115-100005-9f8e7d",
+    "parent_scan_id": "scan-20250115-093012-a1b2c3",
+    "started_at": "2025-01-15T10:00:05+07:00",
+    "finished_at": "2025-01-15T10:02:40+07:00",
+    "target": "https://lab-target.local",
+    "allowlist_verified": true,
+    "rate_limit": {
+      "max_requests": 50,
+      "interval_seconds": 2,
+      "requests_sent": 14
+    }
+  },
+  "probes": [
+    {
+      "probe_id": "P-001",
+      "module": "elementor_rce_probe.py",
+      "finding_ref": "F-001",
+      "action": "HEAD /wp-json/elementor/v1/upload",
+      "http_status": 401,
+      "response_time_ms": 210,
+      "result": "reachable_auth_required",
+      "risk": "low",
+      "note": "Endpoint RCE hidup, tapi butuh auth. Tidak ada payload dikirim."
+    },
+    {
+      "probe_id": "P-002",
+      "module": "aioseo_sqli_probe.py",
+      "finding_ref": "F-002",
+      "action": "GET /wp-json/aioseo/v1/search?q='",
+      "http_status": 403,
+      "response_time_ms": 180,
+      "result": "blocked_by_waf_or_auth",
+      "risk": "low",
+      "note": "Tidak ada error SQL bocor; tidak dilanjutkan."
+    },
+    {
+      "probe_id": "P-003",
+      "module": "wp_core_rce_probe.py",
+      "finding_ref": null,
+      "action": "version vs known CVE endpoint map",
+      "http_status": null,
+      "result": "no_known_exposed_endpoint",
+      "risk": "low",
+      "note": "WP core 6.4.2 tidak match pola RCE yang diuji."
+    },
+    {
+      "probe_id": "P-004",
+      "module": "astra_privesc_probe.py",
+      "finding_ref": "F-003",
+      "action": "GET /wp-admin/admin.php?page=astra",
+      "http_status": 302,
+      "redirect": "/wp-login.php",
+      "result": "protected",
+      "risk": "low",
+      "note": "Panel butuh login; tidak ada ekspos."
+    }
+  ],
+  "summary": {
+    "total_probes": 4,
+    "confirmed_reachable": 1,
+    "blocked": 2,
+    "no_exposure": 1,
+    "exploit_executed": false
+  }
+}

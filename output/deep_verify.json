@@ -1,0 +1,76 @@
+{
+  "metadata": {
+    "tool": "cve_pentest_bssn",
+    "mode": "scan",
+    "phase": "deep_verify",
+    "verify_id": "verify-20250115-093210-d4e5f6",
+    "parent_scan_id": "scan-20250115-093012-a1b2c3",
+    "started_at": "2025-01-15T09:32:10+07:00",
+    "finished_at": "2025-01-15T09:33:55+07:00",
+    "target": "https://lab-target.local"
+  },
+  "verifications": [
+    {
+      "finding_id": "F-001",
+      "cve": "CVE-2024-XXXXX",
+      "method": "version_compare + endpoint_probe",
+      "checks": [
+        {
+          "name": "version_check",
+          "result": "confirmed",
+          "detail": "Detected 3.18.1 < fixed 3.18.2"
+        },
+        {
+          "name": "endpoint_probe",
+          "endpoint": "/wp-json/elementor/v1/upload",
+          "http_status": 401,
+          "result": "inconclusive",
+          "detail": "Endpoint ada tapi butuh auth; tidak dieksploitasi di mode scan"
+        }
+      ],
+      "final_verdict": "vulnerable",
+      "confidence": "high"
+    },
+    {
+      "finding_id": "F-002",
+      "cve": "CVE-2024-YYYYY",
+      "method": "rest_probe + version_compare",
+      "checks": [
+        {
+          "name": "version_check",
+          "result": "confirmed",
+          "detail": "Detected 4.4.9 < fixed 4.5.0"
+        },
+        {
+          "name": "rest_endpoint_probe",
+          "endpoint": "/wp-json/aioseo/v1/...",
+          "http_status": 403,
+          "result": "inconclusive",
+          "detail": "Butuh auth; tidak diuji payload"
+        }
+      ],
+      "final_verdict": "potentially_vulnerable",
+      "confidence": "medium"
+    },
+    {
+      "finding_id": "F-003",
+      "cve": "CVE-2024-ZZZZZ",
+      "method": "version_compare",
+      "checks": [
+        {
+          "name": "version_check",
+          "result": "not_affected",
+          "detail": "Detected 4.6.3 >= fixed 4.6.4? Tidak — 4.6.3 < 4.6.4, tapi endpoint tidak ada"
+        }
+      ],
+      "final_verdict": "not_vulnerable",
+      "confidence": "high"
+    }
+  ],
+  "summary": {
+    "verified_vulnerable": 1,
+    "potentially_vulnerable": 1,
+    "not_vulnerable": 1,
+    "inconclusive": 0
+  }
+}
