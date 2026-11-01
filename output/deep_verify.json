@@ -1,76 +1,210 @@
-{
-  "metadata": {
-    "tool": "cve_pentest_bssn",
-    "mode": "scan",
-    "phase": "deep_verify",
-    "verify_id": "verify-20250115-093210-d4e5f6",
-    "parent_scan_id": "scan-20250115-093012-a1b2c3",
-    "started_at": "2025-01-15T09:32:10+07:00",
-    "finished_at": "2025-01-15T09:33:55+07:00",
-    "target": "https://lab-target.local"
-  },
-  "verifications": [
-    {
-      "finding_id": "F-001",
-      "cve": "CVE-2024-XXXXX",
-      "method": "version_compare + endpoint_probe",
-      "checks": [
-        {
-          "name": "version_check",
-          "result": "confirmed",
-          "detail": "Detected 3.18.1 < fixed 3.18.2"
-        },
-        {
-          "name": "endpoint_probe",
-          "endpoint": "/wp-json/elementor/v1/upload",
-          "http_status": 401,
-          "result": "inconclusive",
-          "detail": "Endpoint ada tapi butuh auth; tidak dieksploitasi di mode scan"
-        }
-      ],
-      "final_verdict": "vulnerable",
-      "confidence": "high"
-    },
-    {
-      "finding_id": "F-002",
-      "cve": "CVE-2024-YYYYY",
-      "method": "rest_probe + version_compare",
-      "checks": [
-        {
-          "name": "version_check",
-          "result": "confirmed",
-          "detail": "Detected 4.4.9 < fixed 4.5.0"
-        },
-        {
-          "name": "rest_endpoint_probe",
-          "endpoint": "/wp-json/aioseo/v1/...",
-          "http_status": 403,
-          "result": "inconclusive",
-          "detail": "Butuh auth; tidak diuji payload"
-        }
-      ],
-      "final_verdict": "potentially_vulnerable",
-      "confidence": "medium"
-    },
-    {
-      "finding_id": "F-003",
-      "cve": "CVE-2024-ZZZZZ",
-      "method": "version_compare",
-      "checks": [
-        {
-          "name": "version_check",
-          "result": "not_affected",
-          "detail": "Detected 4.6.3 >= fixed 4.6.4? Tidak — 4.6.3 < 4.6.4, tapi endpoint tidak ada"
-        }
-      ],
-      "final_verdict": "not_vulnerable",
-      "confidence": "high"
-    }
-  ],
-  "summary": {
-    "verified_vulnerable": 1,
-    "potentially_vulnerable": 1,
-    "not_vulnerable": 1,
-    "inconclusive": 0
-  }
+"""
+modules/deep_verify.py
+Orchestrator verifikasi mendalam + mapping CVE full name.
+Kompatibel dengan output deep_verify.json (mode scan).
+"""
+
+import uuid
+import logging
+from datetime import datetime, timezone, timedelta
+
+# ============================================================
+# Import modul deteksi (sesuaikan dengan struktur repo Anda)
+# ============================================================
+from modules import (
+    wp_core,
+    elementor,
+    astra,
+    aioseo,
+    envoy,
+    wp_readme,
+    rest_probe,
+)
+
+logger = logging.getLogger("bssn.deep_verify")
+
+# ============================================================
+# CVE FULL NAME MAPPING — BSSN Toolkit
+# Sumber: CVE_stack_bssn.txt
+# ============================================================
+CVE_FULL_NAMES = {
+    # ---------- WordPress Core ----------
+    "CVE-2024-31210": "WordPress Core Remote Code Execution via Plugin/Theme Upload (Authenticated Admin)",
+    "CVE-2024-4439":  "WordPress Core Stored Cross-Site Scripting via Avatar Upload",
+    "CVE-2023-2745":  "WordPress Core Directory Traversal in wp-admin",
+    "CVE-2022-21661": "WordPress Core SQL Injection via WP_Query (Authenticated)",
+
+    # ---------- Elementor Pro ----------
+    "CVE-2023-48777": "Elementor Pro Arbitrary File Upload Leading to Remote Code Execution",
+    "CVE-2024-2476":  "Elementor Pro Unauthenticated Arbitrary File Upload (RCE)",
+    "CVE-2023-47505": "Elementor Pro Stored Cross-Site Scripting via Widget",
+    "CVE-2022-1329":  "Elementor Pro Unauthenticated File Upload to Remote Code Execution",
+
+    # ---------- Astra Theme ----------
+    "CVE-2023-3792":  "Astra Theme Authenticated Stored Cross-Site Scripting",
+    "CVE-2024-2797":  "Astra Theme Improper Access Control in Customizer (Privilege Escalation)",
+
+    # ---------- All In One SEO (AIOSEO) ----------
+    "CVE-2023-3401":  "AIOSEO Reflected Cross-Site Scripting via Admin Settings",
+    "CVE-2024-3742":  "AIOSEO SQL Injection in REST API Endpoint",
+    "CVE-2023-0585":  "AIOSEO Stored Cross-Site Scripting via Meta Tags",
+
+    # ---------- Envoy Proxy ----------
+    "CVE-2023-35943": "Envoy Proxy Use-After-Free in HTTP/2 Handling (DoS)",
+    "CVE-2023-35942": "Envoy Proxy Memory Leak in HTTP/2 Request Handling",
+    "CVE-2024-23324": "Envoy Proxy HPACK Denial of Service via Malformed Headers",
 }
+
+
+# ============================================================
+# Helper: full name CVE (anti-error, dengan fallback)
+# ============================================================
+def get_cve_full_name(cve_id: str) -> str:
+    """
+    Kembalikan nama lengkap CVE.
+    - cve_id kosong -> 'Unknown CVE'
+    - tidak ada di mapping -> kembalikan ID asli (tidak error)
+    """
+    if not cve_id:
+        return "Unknown CVE"
+    return CVE_FULL_NAMES.get(str(cve_id).strip(), cve_id)
+
+
+# ============================================================
+# Helper: timestamp lokal (WIB / +07:00)
+# ============================================================
+def _now_iso() -> str:
+    tz = timezone(timedelta(hours=7))
+    return datetime.now(tz).isoformat(timespec="seconds")
+
+
+# ============================================================
+# Collector: ambil findings mentah dari tiap modul
+# ============================================================
+def _collect_findings(target: str, recon_data: dict) -> list:
+    """
+    Kumpulkan findings dari modul deteksi.
+    Mengembalikan list of dict:
+    {
+        "finding_id": "F-001",
+        "cve": "CVE-2024-XXXXX",
+        "method": "...",
+        "checks": [...],
+        "final_verdict": "...",
+        "confidence": "..."
+    }
+    Sesuaikan pemanggilan fungsi di bawah dengan API asli modul Anda.
+    """
+    raw_findings = []
+
+    # Daftar modul + nama fungsi entrypoint yang diasumsikan.
+    # Ganti nama fungsi jika berbeda di repo Anda.
+    detectors = [
+        ("wp_core",   getattr(wp_core,   "check", None)),
+        ("elementor", getattr(elementor, "check", None)),
+        ("astra",     getattr(astra,     "check", None)),
+        ("aioseo",    getattr(aioseo,    "check", None)),
+        ("envoy",     getattr(envoy,     "check", None)),
+    ]
+
+    for name, fn in detectors:
+        if fn is None:
+            logger.debug(f"[deep_verify] Modul {name} tidak punya fungsi check(), skip.")
+            continue
+        try:
+            results = fn(target, recon_data) or []
+            for r in results:
+                raw_findings.append(r)
+        except Exception as e:
+            logger.warning(f"[deep_verify] Error di modul {name}: {e}")
+
+    return raw_findings
+
+
+# ============================================================
+# Builder: bentuk objek verifikasi (dengan full name CVE)
+# ============================================================
+def _build_verifications(findings: list) -> list:
+    verifications = []
+    for idx, finding in enumerate(findings, start=1):
+        cve_id = (finding.get("cve") or "").strip()
+
+        verification = {
+            "finding_id": finding.get("finding_id") or f"F-{idx:03d}",
+            "cve": get_cve_full_name(cve_id),      # ← FULL NAME
+            "cve_id": cve_id,                      # ← ID asli
+            "method": finding.get("method", ""),
+            "checks": finding.get("checks", []),
+            "final_verdict": finding.get("final_verdict", "unknown"),
+            "confidence": finding.get("confidence", "low"),
+        }
+        verifications.append(verification)
+    return verifications
+
+
+# ============================================================
+# Builder: summary
+# ============================================================
+def _build_summary(verifications: list) -> dict:
+    return {
+        "verified_vulnerable":    sum(1 for v in verifications if v["final_verdict"] == "vulnerable"),
+        "potentially_vulnerable": sum(1 for v in verifications if v["final_verdict"] == "potentially_vulnerable"),
+        "not_vulnerable":         sum(1 for v in verifications if v["final_verdict"] == "not_vulnerable"),
+        "inconclusive":           sum(1 for v in verifications if v["final_verdict"] == "inconclusive"),
+    }
+
+
+# ============================================================
+# ENTRYPOINT: deep_verify_engine()
+# ============================================================
+def deep_verify_engine(
+    target: str,
+    recon_data: dict = None,
+    parent_scan_id: str = None,
+) -> dict:
+    """
+    Entrypoint utama. Dipanggil dari main.py (mode scan).
+    Mengembalikan dict sesuai format deep_verify.json.
+    """
+    recon_data = recon_data or {}
+
+    started_at = _now_iso()
+    verify_id = f"verify-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+
+    logger.info(f"[deep_verify] Mulai verifikasi target={target} verify_id={verify_id}")
+
+    # 1. Kumpulkan findings mentah
+    findings = _collect_findings(target, recon_data)
+
+    # 2. Bentuk objek verifikasi (mapping full name)
+    verifications = _build_verifications(findings)
+
+    # 3. Log ringkas (opsional, memudahkan debugging)
+    for v in verifications:
+        logger.info(f"[deep_verify] [{v['cve_id']}] {v['cve']} -> {v['final_verdict']} ({v['confidence']})")
+
+    finished_at = _now_iso()
+
+    # 4. Susun output final
+    result = {
+        "metadata": {
+            "tool": "cve_pentest_bssn",
+            "mode": "scan",
+            "phase": "deep_verify",
+            "verify_id": verify_id,
+            "parent_scan_id": parent_scan_id or "",
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "target": target,
+        },
+        "verifications": verifications,
+        "summary": _build_summary(verifications),
+    }
+
+    logger.info(
+        f"[deep_verify] Selesai. "
+        f"vuln={result['summary']['verified_vulnerable']} "
+        f"potensial={result['summary']['potentially_vulnerable']} "
+        f"not_vuln={result['summary']['not_vulnerable']}"
+    )
+    return result
