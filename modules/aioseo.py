@@ -27,9 +27,11 @@ except ImportError:
 logger = get_logger("AioseoModule")
 
 
-class AioseoCVEHandler:
+class AIOSEOChecker:
     """
     Handler utama untuk memeriksa dan mengeksploitasi kerentanan AIOSEO.
+    (PERBAIKAN: Nama class diubah dari AioseoCVEHandler menjadi AIOSEOChecker 
+    agar sesuai dengan import di main.py/deep_verify.py)
     """
     
     # MAPPING CVE METADATA (FULL NAME)
@@ -131,7 +133,8 @@ def main():
     parser.add_argument("--mode", choices=["scan", "probe", "exploit"], default="scan", help="Execution mode")
     args = parser.parse_args()
 
-    handler = AioseoCVEHandler(target_url=args.target)
+    # PERBAIKAN: Memanggil nama class yang baru (AIOSEOChecker)
+    handler = AIOSEOChecker(target_url=args.target)
     
     print(f"[+] Starting AIOSEO Analysis on {args.target} (Mode: {args.mode})")
     final_result = handler.run_full_pipeline(mode=args.mode)
