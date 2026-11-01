@@ -29,5 +29,5 @@ Tips Tambahan:
 Pastikan folder output/ sudah ada sebelum menjalankan script, atau buat dulu dengan mkdir -p output.
 Hati-hati saat mengetik di Terminal karena keyboard virtual kadang susah, pastikan tidak ada spasi berlebih atau typo pada --mode.
 
-Happy Pentesting 
+Happy Hacking
 
