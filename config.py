@@ -1,10 +1,8 @@
 """
-config.py - Konfigurasi Global untuk CVE BSSN Toolkit (OFFENSIVE MODE)
+config.py - Konfigurasi Global untuk CVE BSSN Toolkit (FIXED)
 
-Versi ini dioptimalkan untuk mode EXPLOIT dan PROBE.
-- Delay lebih cepat untuk bypass rate-limit sederhana.
-- Auto-cleanup aktif agar server bersih setelah attack.
-- Dry run mati agar exploit benar-benar dieksekusi.
+Memperbaiki error TypeError pada dataclass fields.
+Mode Offensive siap digunakan.
 """
 
 import os
@@ -15,10 +13,10 @@ from dataclasses import dataclass, field
 @dataclass
 class LoggingConfig:
     """Konfigurasi untuk sistem logging."""
-    level: str = "INFO" # Ubah ke DEBUG jika ingin melihat detail request/response
+    level: str = "INFO" 
     log_file: str = "evidence/logs/app.log"
     jsonl_log_file: str = "evidence/logs/chain_of_evidence.jsonl"
-    file_max_bytes: int = 5 * 1024 * 1024 # 5 MB per file
+    file_max_bytes: int = 5 * 1024 * 1024 
     backup_count: int = 3
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -26,9 +24,9 @@ class LoggingConfig:
 @dataclass
 class NetworkConfig:
     """Konfigurasi jaringan umum (requests/session)."""
-    timeout: int = 15 # Tingkatkan sedikit timeout untuk memastikan payload terkirim
-    max_retries: int = 5 # Retry lebih banyak untuk koneksi unstable
-    backoff_factor: float = 0.3 # Backoff lebih cepat
+    timeout: int = 15 
+    max_retries: int = 5 
+    backoff_factor: float = 0.3 
     user_agent: str = "CVE-BSSN-Toolkit/1.0 (Python)"
     headers: Dict[str, str] = field(default_factory=lambda: {
         "Accept": "*/*",
@@ -42,23 +40,23 @@ class OffensiveConfig:
     """Konfigurasi khusus untuk mode PROBE dan EXPLOIT (AGGRESSIVE)."""
     
     # Batas keamanan dasar
-    max_concurrent_probes: int = 10 # Tambah concurrent probe untuk speed
-    request_delay_probe: float = 0.2 # Kurangi delay antar request probe (lebih agresif)
-    request_delay_exploit: float = 0.5 # Kurangi delay antar request exploit
+    max_concurrent_probes: int = 10 
+    request_delay_probe: float = 0.2 
+    request_delay_exploit: float = 0.5 
     
-    # Path ke payload
+    # Path ke payload - SEMUA HARUS PUNYA DEFAULT VALUE AGAR TIDAK ERROR
     payloads_dir: str = "payloads"
-    shells_dir: "payloads/shells"
-    sql_queries_dir: "payloads/sql_queries"
-    commands_dir: "payloads/commands"
+    shells_dir: str = "payloads/shells"
+    sql_queries_dir: str = "payloads/sql_queries"
+    commands_dir: str = "payloads/commands"
     
     # Cleanup otomatis setelah exploit
-    auto_cleanup: bool = True # WAJIB TRUE agar tidak ada sisa file aneh di server
-    cleanup_timeout_seconds: int = 30 # Waktu tunggu sebelum cleanup paksa jika proses hang
+    auto_cleanup: bool = True 
+    cleanup_timeout_seconds: int = 30 
     
     # Risk Management Flags
-    require_allowlist: bool = True # Tetap wajib cek allowlist.txt
-    dry_run_default: bool = False # FALSE agar exploit benar-benar jalan, bukan simulasi
+    require_allowlist: bool = True 
+    dry_run_default: bool = False 
 
 
 @dataclass
@@ -82,7 +80,7 @@ class PathsConfig:
 class AppConfig:
     """Kontainer utama konfigurasi aplikasi."""
     version: str = "1.0.0"
-    debug_mode: bool = False # Set True jika ingin trace error detail
+    debug_mode: bool = False
     
     # Sub-konfigurasi
     logging: LoggingConfig = field(default_factory=LoggingConfig)
@@ -95,10 +93,7 @@ class AppConfig:
 
     def __post_init__(self):
         """Validasi dan inisialisasi pasca-inisialisasi dataclass."""
-        # Pastikan direktori output ada saat config dimuat
         self._ensure_directories()
-        
-        # Override dari Environment Variables jika ada
         self._load_env_overrides()
 
     def _ensure_directories(self):
@@ -119,7 +114,6 @@ class AppConfig:
 
     def _load_env_overrides(self):
         """Memuat variabel lingkungan untuk override konfigurasi."""
-        # Timeout
         env_timeout = os.getenv("BSSN_TIMEOUT")
         if env_timeout:
             try:
@@ -127,24 +121,20 @@ class AppConfig:
             except ValueError:
                 pass
         
-        # Debug Mode
         if os.getenv("BSSN_DEBUG", "").lower() in ("true", "1", "yes"):
             self.debug_mode = True
             self.logging.level = "DEBUG"
         
-        # API Keys dari Env
         api_key_env = os.getenv("BSSN_API_KEY")
         if api_key_env:
-            self.api_keys["default"] = api_key_env # FIX: Typo dari 'api_key_key'
+            self.api_keys["default"] = api_key_env 
         
-        # Payload Dir Override
         env_payloads = os.getenv("BSSN_PAYLOADS_DIR")
         if env_payloads:
             self.offensive.payloads_dir = env_payloads
 
 
-# Instance Global Config yang bisa diimpor oleh modul lain
-# Contoh: from config import config
+# Instance Global Config
 config = AppConfig()
 
 def get_config() -> AppConfig:
