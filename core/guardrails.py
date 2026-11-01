@@ -8,7 +8,7 @@ Fungsi Utama:
 4. Rate Limiting & Concurrency Check
 5. Emergency Stop Mechanism
 
-Author: NoTrack AI Assistant
+Author: Dwi Joko Purwanto 
 Status: Production Ready
 """
 
@@ -66,7 +66,8 @@ class GuardrailEngine:
     def __init__(self, config: dict = None):
         self.config = config or {}
         self.allowlist: Set[str] = set()
-        self.load_allowlist()
+        # PERBAIKAN: Mengubah default path dari 'allowlist.txt' menjadi 'allowlists.txt'
+        self.load_allowlist("allowlists.txt")
         
         # State management untuk emergency stop
         self._emergency_stop_event = threading.Event()
@@ -79,7 +80,7 @@ class GuardrailEngine:
         
         logger.info("GuardrailEngine initialized.")
 
-    def load_allowlist(self, path: str = "allowlist.txt"):
+    def load_allowlist(self, path: str = "allowlists.txt"):
         """Memuat daftar domain/IP yang diizinkan dari file."""
         if not os.path.exists(path):
             logger.warning(f"Allowlist file '{path}' not found. Using default empty set.")
@@ -256,6 +257,30 @@ def init_guardrails(config: dict = None):
     global _default_guardrail_engine
     _default_guardrail_engine = GuardrailEngine(config)
     logger.info("Global guardrails re-initialized.")
+
+
+# =====================================================================
+# PERBAIKAN: FUNGSI WRAPPER (STANDALONE) UNTUK MENGATASI ERROR DI MAIN.PY
+# =====================================================================
+
+def check_allowlist(target: str) -> bool:
+    """
+    Fungsi wrapper standalone yang dipanggil oleh main.py.
+    Mengembalikan True jika target diizinkan (PASS/WARNING), False jika diblokir.
+    """
+    engine = get_guardrail_engine()
+    result = engine.check_allowlist(target)
+    return result.is_allowed()
+
+def get_risk_level(module_name: str = "") -> RiskLevel:
+    """
+    Fungsi wrapper standalone untuk mendapatkan risk level.
+    Anda bisa memodifikasi logika ini sesuai kebutuhan modul.
+    """
+    # Default risk level, bisa disesuaikan berdasarkan nama modul
+    if "exploit" in module_name.lower():
+        return RiskLevel.HIGH
+    return RiskLevel.LOW
 
 # --- Helper Functions untuk CLI/Integration ---
 
