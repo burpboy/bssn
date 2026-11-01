@@ -68,7 +68,7 @@ def run_scan_mode(target_url, verbose=False):
             findings.append({
                 "id": f"F-{finding_id_counter:03d}",
                 "module": "wp_core.py",
-                "cve": cve_item.get("cve_full_name", cve_item.get("cve", "Unknown")), # FULL NAME
+                "cve": cve_item.get("cve_full_name", cve_item.get("cve", "Unknown")),
                 "cve_id": cve_item.get("cve", "Unknown"),
                 "title": cve_item.get("cve_full_name", "Unknown"),
                 "severity": cve_item.get("severity", "High"),
@@ -89,13 +89,13 @@ def run_scan_mode(target_url, verbose=False):
     try:
         logger.info("Running Elementor Scanner...")
         el_scanner = ElementorCVEScanner(target=target_url, timeout=10)
-        el_result = el_scanner.scan() # Menjalankan fungsi scan di elementor.py
+        el_result = el_scanner.scan()
         
         for vuln in el_result.get("vulnerabilities", []):
             findings.append({
                 "id": f"F-{finding_id_counter:03d}",
                 "module": "elementor.py",
-                "cve": vuln.get("title", vuln.get("cve", "Unknown")), # FULL NAME (dari mapping elementor.py)
+                "cve": vuln.get("title", vuln.get("cve", "Unknown")),
                 "cve_id": vuln.get("cve", "Unknown"),
                 "title": vuln.get("title", "Unknown"),
                 "severity": "Critical",
@@ -120,13 +120,12 @@ def run_scan_mode(target_url, verbose=False):
         
         if astra_version:
             for cve_id, info in ASTRA_CVE_DB.items():
-                # Cek versi menggunakan logika dari astra.py
                 from modules.astra import version_compare
                 if version_compare(astra_version, info.get("affected", "")):
                     findings.append({
                         "id": f"F-{finding_id_counter:03d}",
                         "module": "astra.py",
-                        "cve": info.get("title", cve_id), # FULL NAME
+                        "cve": info.get("title", cve_id),
                         "cve_id": cve_id,
                         "title": info.get("title", "Unknown"),
                         "severity": info.get("severity", "Medium"),
@@ -155,7 +154,7 @@ def run_scan_mode(target_url, verbose=False):
             findings.append({
                 "id": f"F-{finding_id_counter:03d}",
                 "module": "aioseo.py",
-                "cve": data.get("cve_full_name", data.get("cve", "Unknown")), # FULL NAME
+                "cve": data.get("cve_full_name", data.get("cve", "Unknown")),
                 "cve_id": data.get("cve", "Unknown"),
                 "title": data.get("cve_full_name", "Unknown"),
                 "severity": "High",
@@ -197,7 +196,7 @@ def run_scan_mode(target_url, verbose=False):
                 "target": target_url,
                 "operator": "pentester@local"
             },
-            "findings": findings, # <-- INI YANG AKAN MENAMPILKAN CVE FULL NAME
+            "findings": findings,
             "deep_verify": deep_verify_results,
             "summary": {
                 "total_findings": len(findings),
