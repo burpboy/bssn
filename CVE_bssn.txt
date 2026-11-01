@@ -1,1 +1,16 @@
+[WordPress Core]
+cves = CVE-2024-31210, CVE-2024-4439, CVE-2023-2745, CVE-2022-21661
+risk = RCE admin-side / SQLi / XSS
+
+[Elementor Pro]
+cves = CVE-2023-48777, CVE-2024-2476, CVE-2023-47505, CVE-2022-1329
+risk = File upload RCE (Kritis jika versi < 3.18.2)
+
+[Astra Theme]
+cves = CVE-2023-3792, CVE-2024-2797
+risk = Membutuhkan akses admin/customizer
+
+[AIOSEO]
+cves = CVE-2023-3401, CVE-2024-3742, CVE-2023-0585
+risk = SQLi / XSS publik
 
