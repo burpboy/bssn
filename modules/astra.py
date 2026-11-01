@@ -25,7 +25,8 @@ def version_compare(installed, affected_spec):
     target = parse_version(match.group(1))
     return inst < target if target else False
 
-class AstraDetector:
+# PERBAIKAN 1: Mengubah nama class menjadi AstraThemeChecker
+class AstraThemeChecker: 
     def __init__(self, url, timeout=10):
         self.url = url.rstrip("/")
         self.timeout = timeout
@@ -50,10 +51,12 @@ class AstraDetector:
 def scan_target(url, timeout=10, exploit_flag=False, cmd=None, xss_trigger=False):
     result = {"url": url, "theme_detected": False, "version": None, "vulnerabilities": [], "error": None}
     try:
-        detector = AstraDetector(url, timeout=timeout)
+        # Memanggil class yang sudah diperbaiki
+        detector = AstraThemeChecker(url, timeout=timeout)
         version, method = detector.detect_version()
         if version:
             result["version"] = version
+            result["theme_detected"] = True # Menandai bahwa tema terdeteksi
             for cve_id, info in CVE_DB.items():
                 if version_compare(result["version"], info["affected"]):
                     # MENYERTAKAN FULL NAME & TITLE
@@ -73,9 +76,21 @@ def scan_target(url, timeout=10, exploit_flag=False, cmd=None, xss_trigger=False
 def print_result(res):
     print("=" * 60)
     print(f"[*] Target : {res['url']}")
-    if res["error"]: print(f"[!] Error : {res['error']}"); return
-    if res["version"]: print(f"[+] Versi : {res['version']}")
+    if res["error"]: 
+        print(f"[!] Error : {res['error']}")
+        return
+    
+    if res["version"]: 
+        print(f"[+] Versi : {res['version']}")
+    elif res["theme_detected"] == False:
+        print("[-] Tema Astra tidak terdeteksi.")
+        return
+
     vulns = res["vulnerabilities"]
     if vulns:
         for v in vulns:
-            print(f"[{v['severity']}] {v['cve']} - {v['cve_full_name']}") # OUTPUT FULL NAME
+            print(f"[{v['severity']}] {v['cve']} - {v['cve_full_name']}")
+            # PERBAIKAN 2: Menutup dictionary v dan memformat output dengan benar
+            # Kamu bisa menambahkan baris print lain di sini jika perlu
+    else:
+        print("[-] Tidak ada kerentanan yang cocok dengan versi ini.")
