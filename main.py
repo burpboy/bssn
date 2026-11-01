@@ -23,7 +23,8 @@ try:
     # Import modul scanner langsung agar bisa diekstrak datanya
     from modules.wp_core import WPCoreScanner
     from modules.elementor import ElementorCVEScanner
-    from modules.astra import AstraDetector, CVE_DB as ASTRA_CVE_DB
+    # PERBAIKAN 1: Mengubah import dari AstraDetector menjadi AstraThemeChecker
+    from modules.astra import AstraThemeChecker, CVE_DB as ASTRA_CVE_DB
     from modules.aioseo import AioseoCVEHandler
     from modules.envoy import EnvoyFingerprinter
     
@@ -115,7 +116,8 @@ def run_scan_mode(target_url, verbose=False):
     # ============================================================
     try:
         logger.info("Running Astra Scanner...")
-        astra_detector = AstraDetector(target_url)
+        # PERBAIKAN 2: Mengubah instansiasi class menjadi AstraThemeChecker
+        astra_detector = AstraThemeChecker(target_url)
         astra_version, _ = astra_detector.detect_version()
         
         if astra_version:
