@@ -27,7 +27,7 @@ except ImportError:
 logger = get_logger("AioseoModule")
 
 
-# PERBAIKAN: Nama class dikembalikan ke AioseoCVEHandler agar sesuai dengan main.py
+# PERBAIKAN UTAMA: Menggunakan nama class AioseoCVEHandler
 class AioseoCVEHandler:
     """
     Handler utama untuk memeriksa dan mengeksploitasi kerentanan AIOSEO.
@@ -97,15 +97,14 @@ class AioseoCVEHandler:
                 return result
 
             # Langkah 2: Simulasi / Cek Kerentanan
-            # (Contoh: jika versi < 4.5.0, anggap rentan ke CVE-2024-YYYYY)
             if version < "4.5.0":
                 cve_id = "CVE-2024-YYYYY"
                 cve_full = self.CVE_METADATA.get(cve_id, "Unknown CVE")
                 
                 result["data"].update({
                     "cve": cve_id,
-                    "cve_full_name": cve_full, # <-- CVE FULL NAME
-                    "title": cve_full,         # <-- ALIAS UNTUK FULL NAME
+                    "cve_full_name": cve_full, 
+                    "title": cve_full,         
                     "status": "vulnerable"
                 })
                 logger.warning(f"[SCAN] Menemukan CVE: {cve_id} - {cve_full}")
@@ -122,6 +121,12 @@ class AioseoCVEHandler:
         
         return result
 
+# ============================================================
+# PERBAIKAN: Alias Class untuk mengakomodasi deep_verify.py
+# ============================================================
+# File deep_verify.py memanggil 'AIOSEOChecker', jadi kita buat alias-nya.
+AIOSEOChecker = AioseoCVEHandler
+
 
 def main():
     """Entry point untuk CLI testing."""
@@ -132,7 +137,6 @@ def main():
     parser.add_argument("--mode", choices=["scan", "probe", "exploit"], default="scan", help="Execution mode")
     args = parser.parse_args()
 
-    # Menggunakan nama class yang sesuai
     handler = AioseoCVEHandler(target_url=args.target)
     
     print(f"[+] Starting AIOSEO Analysis on {args.target} (Mode: {args.mode})")
