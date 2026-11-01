@@ -13,6 +13,7 @@
 127.0.0.1
 localhost
 159.60.136.200
+https://www.bssn.go.id
 
 # Docker network (default bridge / custom subnet lab)
 172.17.0.0/16
