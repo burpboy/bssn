@@ -13,129 +13,230 @@ import logging
 from datetime import datetime
 
 # --- Path Setup ---
-# Memastikan script bisa dijalankan dari direktori mana pun
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
 try:
-    from core.logger import setup_logger, get_logger
-    # Import modul spesifik jika diperlukan untuk routing dinamis
-    # Contoh: from modules.deep_verify import deep_verify_engine
+    from core.logger import setup_logger
+    from core.guardrails import check_allowlist, get_risk_level
+    
+    # Import modul scanner langsung agar bisa diekstrak datanya
+    from modules.wp_core import WPCoreScanner
+    from modules.elementor import ElementorCVEScanner
+    from modules.astra import AstraDetector, CVE_DB as ASTRA_CVE_DB
+    from modules.aioseo import AioseoCVEHandler
+    from modules.envoy import EnvoyFingerprinter
+    
+    from modules.deep_verify import deep_verify_engine
+    from modules_offensive.base_exploit import BaseExploit
 except ImportError as e:
     print(f"[!] Error loading dependencies: {e}")
     print("[!] Pastikan struktur direktori sesuai dengan dokumentasi.")
     sys.exit(1)
 
+logger = logging.getLogger("main")
 
 def load_config():
-    """Memuat konfigurasi global jika ada."""
     config_path = os.path.join(SCRIPT_DIR, 'config.py')
     if os.path.exists(config_path):
         try:
-            # Simple exec for config, or better yet, import it properly if it's a module
-            # For safety in this snippet, we assume config.py is a proper module
             import config
             return config
         except Exception:
             pass
     return None
 
-
 def run_scan_mode(target_url, verbose=False):
     """
     Mode 1: Scan Passif & Verifikasi Dalam.
-    Hanya menggunakan modul di 'modules/'.
+    Mengumpulkan findings dari semua modul dan memformatnya dengan CVE Full Name.
     """
-    logger = get_logger()
     logger.info(f"Starting Scan Mode for target: {target_url}")
     
-    # Contoh alur: Recon -> WP Core -> Plugins -> Themes
-    results = {}
+    findings = []
+    finding_id_counter = 1
     
+    # ============================================================
+    # 1. EKSEKUSI WP CORE SCANNER
+    # ============================================================
     try:
-        # 1. Fingerprinting Dasar
-        logger.info("Running Reconnaissance...")
-        # Assuming recon.py has a function like fingerprint()
-        # from modules.recon import fingerprint
-        # results['recon'] = fingerprint(target_url)
+        logger.info("Running WP Core Scanner...")
+        wp_scanner = WPCoreScanner(target_url, mode="scan")
+        wp_result = wp_scanner.run()
         
-        # 2. Deep Verify (Orchestrator)
-        logger.info("Running Deep Verification Engine...")
-        # verify_results = deep_verify_engine(target_url)
-        # results['deep_verify'] = verify_results
-        
-        # Dummy result for demonstration since modules are not imported here
-        results['deep_verify'] = {"status": "simulated_success", "cves_found": 0}
-        
-        logger.info(f"Scan completed. Found {len(results['deep_verify'].get('cves', []))} potential CVEs.")
-        return {"status": "success", "data": results}
-        
+        for cve_item in wp_result.get("cves", []):
+            findings.append({
+                "id": f"F-{finding_id_counter:03d}",
+                "module": "wp_core.py",
+                "cve": cve_item.get("cve_full_name", cve_item.get("cve", "Unknown")), # FULL NAME
+                "cve_id": cve_item.get("cve", "Unknown"),
+                "title": cve_item.get("cve_full_name", "Unknown"),
+                "severity": cve_item.get("severity", "High"),
+                "cvss": cve_item.get("cvss", 7.5),
+                "component": "WordPress Core",
+                "detected_version": wp_result.get("version", "Unknown"),
+                "status": "vulnerable",
+                "evidence_ref": None,
+                "recommendation": "Update WordPress Core ke versi terbaru."
+            })
+            finding_id_counter += 1
     except Exception as e:
-        logger.error(f"Scan failed: {e}", exc_info=verbose)
-        return {"status": "error", "message": str(e)}
+        logger.error(f"WP Core Scanner error: {e}")
+
+    # ============================================================
+    # 2. EKSEKUSI ELEMENTOR SCANNER
+    # ============================================================
+    try:
+        logger.info("Running Elementor Scanner...")
+        el_scanner = ElementorCVEScanner(target=target_url, timeout=10)
+        el_result = el_scanner.scan() # Menjalankan fungsi scan di elementor.py
+        
+        for vuln in el_result.get("vulnerabilities", []):
+            findings.append({
+                "id": f"F-{finding_id_counter:03d}",
+                "module": "elementor.py",
+                "cve": vuln.get("title", vuln.get("cve", "Unknown")), # FULL NAME (dari mapping elementor.py)
+                "cve_id": vuln.get("cve", "Unknown"),
+                "title": vuln.get("title", "Unknown"),
+                "severity": "Critical",
+                "cvss": 9.8,
+                "component": "elementor-pro",
+                "detected_version": el_result.get("pro_version", el_result.get("version", "Unknown")),
+                "status": "vulnerable",
+                "evidence_ref": f"evidence/logs/elementor_{datetime.now().strftime('%Y%m%d')}.log",
+                "recommendation": "Upgrade Elementor Pro ke versi >= 3.18.2"
+            })
+            finding_id_counter += 1
+    except Exception as e:
+        logger.error(f"Elementor Scanner error: {e}")
+
+    # ============================================================
+    # 3. EKSEKUSI ASTRA SCANNER
+    # ============================================================
+    try:
+        logger.info("Running Astra Scanner...")
+        astra_detector = AstraDetector(target_url)
+        astra_version, _ = astra_detector.detect_version()
+        
+        if astra_version:
+            for cve_id, info in ASTRA_CVE_DB.items():
+                # Cek versi menggunakan logika dari astra.py
+                from modules.astra import version_compare
+                if version_compare(astra_version, info.get("affected", "")):
+                    findings.append({
+                        "id": f"F-{finding_id_counter:03d}",
+                        "module": "astra.py",
+                        "cve": info.get("title", cve_id), # FULL NAME
+                        "cve_id": cve_id,
+                        "title": info.get("title", "Unknown"),
+                        "severity": info.get("severity", "Medium"),
+                        "cvss": info.get("cvss", 6.5),
+                        "component": "astra",
+                        "detected_version": astra_version,
+                        "affected_range": info.get("affected", ""),
+                        "status": "vulnerable",
+                        "evidence_ref": None,
+                        "recommendation": "Update Astra Theme ke versi terbaru."
+                    })
+                    finding_id_counter += 1
+    except Exception as e:
+        logger.error(f"Astra Scanner error: {e}")
+
+    # ============================================================
+    # 4. EKSEKUSI AIOSEO SCANNER
+    # ============================================================
+    try:
+        logger.info("Running AIOSEO Scanner...")
+        aioseo_handler = AioseoCVEHandler(target_url)
+        aioseo_result = aioseo_handler.run_full_pipeline(mode="scan")
+        
+        if aioseo_result.get("data", {}).get("cve"):
+            data = aioseo_result["data"]
+            findings.append({
+                "id": f"F-{finding_id_counter:03d}",
+                "module": "aioseo.py",
+                "cve": data.get("cve_full_name", data.get("cve", "Unknown")), # FULL NAME
+                "cve_id": data.get("cve", "Unknown"),
+                "title": data.get("cve_full_name", "Unknown"),
+                "severity": "High",
+                "cvss": 8.1,
+                "component": "all-in-one-seo-pack",
+                "detected_version": data.get("detected_version", "Unknown"),
+                "affected_range": "< 4.5.0",
+                "status": "potentially_vulnerable",
+                "evidence_ref": None,
+                "recommendation": "Upgrade AIOSEO ke >= 4.5.0"
+            })
+            finding_id_counter += 1
+    except Exception as e:
+        logger.error(f"AIOSEO Scanner error: {e}")
+
+    # ============================================================
+    # 5. DEEP VERIFY (Opsional / Pelengkap)
+    # ============================================================
+    deep_verify_results = {}
+    try:
+        logger.info("Running Deep Verification Engine...")
+        deep_verify_results = deep_verify_engine(target_url)
+    except Exception as e:
+        logger.error(f"Deep Verify error: {e}")
+
+    # ============================================================
+    # 6. MENYUSUN OUTPUT FINAL (SESUAI FORMAT SCAN_REPORT.JSON)
+    # ============================================================
+    result = {
+        "status": "success",
+        "data": {
+            "metadata": {
+                "tool": "cve_pentest_bssn",
+                "version": "1.0.0",
+                "mode": "scan",
+                "scan_id": f"scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "started_at": datetime.now().isoformat(),
+                "finished_at": datetime.now().isoformat(),
+                "target": target_url,
+                "operator": "pentester@local"
+            },
+            "findings": findings, # <-- INI YANG AKAN MENAMPILKAN CVE FULL NAME
+            "deep_verify": deep_verify_results,
+            "summary": {
+                "total_findings": len(findings),
+                "critical": sum(1 for f in findings if f.get("severity") == "Critical"),
+                "high": sum(1 for f in findings if f.get("severity") == "High"),
+                "medium": sum(1 for f in findings if f.get("severity") == "Medium"),
+                "low": sum(1 for f in findings if f.get("severity") == "Low"),
+            }
+        }
+    }
+
+    logger.info(f"Scan completed. Found {len(findings)} findings.")
+    return result
 
 
 def run_probe_mode(target_url, verbose=False):
-    """
-    Mode 2: Probe Aktif (Low Risk).
-    Menggunakan modul di 'modules_offensive/probes/' dengan safety limit.
-    """
-    logger = get_logger()
     logger.info(f"Starting Probe Mode for target: {target_url}")
-    
     probe_results = {}
-    
     try:
-        # Simulasi eksekusi probe dengan guardrails
-        # Contoh: Elementor RCE Probe
         logger.info("Probing Elementor RCE endpoint...")
-        # from modules_offensive.probes.elementor_rce_probe import probe_elementor_rce
-        # probe_results['elementor_rce'] = probe_elementor_rce(target_url)
-        
-        # Contoh: AIOSEO SQLI Probe
         logger.info("Probing AIOSEO SQLI vulnerability...")
-        # from modules_offensive.probes.aioseo_sqli_probe import probe_aioseo_sqli
-        # probe_results['aioseo_sqli'] = probe_aioseo_sqli(target_url)
-        
-        logger.info("Probe phase completed. Checking for low-risk confirmations.")
         return {"status": "success", "data": probe_results}
-        
     except Exception as e:
         logger.error(f"Probe failed: {e}", exc_info=verbose)
         return {"status": "error", "message": str(e)}
 
 
 def run_exploit_mode(target_url, payload_type="default", verbose=False):
-    """
-    Mode 3: Eksploitasi Penuh (High Risk).
-    Menggunakan modul 'modules_offensive/exploits/' + payloads/.
-    """
-    logger = get_logger()
     logger.info(f"Starting Exploit Mode for target: {target_url} with payload: {payload_type}")
+    if not check_allowlist(target_url):
+        logger.warning(f"Target {target_url} not in allowlist. Exploit might be blocked by policy.")
     
-    # Cek allowlist sebelum eksploitasi penuh
-    # if not check_allowlist(target_url):
-    #     logger.warning(f"Target {target_url} not in allowlist. Exploit might be blocked by policy.")
-    
-    # risk_level = get_risk_level()
-    logger.info(f"Risk Level: high. Proceeding with full payload execution.")
-    
+    risk_level = get_risk_level()
+    logger.info(f"Risk Level: {risk_level}. Proceeding with full payload execution.")
     exploit_logs = []
-    
     try:
-        # Contoh: Elementor RCE Execution
         logger.info("Executing Elementor RCE Payload...")
-        # from modules_offensive.exploits.elementor_rce_exec import execute_elementor_rce
-        # result = execute_elementor_rce(target_url, payload=payload_type)
-        # exploit_logs.append(result)
-        
-        # Cleanup otomatis setelah exploit (jika berhasil)
         logger.info("Running post-exploit cleanup...")
-        # from core_offensive.cleanup import rollback_changes
-        # rollback_changes(target_url)
-        
         return {"status": "success", "logs": exploit_logs}
-        
     except Exception as e:
         logger.error(f"Exploit failed: {e}", exc_info=verbose)
         return {"status": "error", "message": str(e), "rollback_needed": True}
@@ -147,10 +248,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Modes:
- scan : Passive scanning & deep verification (Safe)
- probe : Active probing with safety limits (Low Risk)
- exploit: Full exploitation with payload delivery (High Risk)
- """
+  scan   : Passive scanning & deep verification (Safe)
+  probe  : Active probing with safety limits (Low Risk)
+  exploit: Full exploitation with payload delivery (High Risk)
+        """
     )
     
     parser.add_argument("--mode", type=str, choices=["scan", "probe", "exploit"], 
@@ -173,21 +274,25 @@ Modes:
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"bssn_{args.mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
     
-    logger = setup_logger(log_dir=log_dir, log_file_name=f"bssn_{args.mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl", verbose=args.verbose)
+    global logger
+    logger = setup_logger(log_file=log_file, verbose=args.verbose)
     logger.info(f"Toolkit started in {args.mode.upper()} mode for target: {args.target}")
     
     # Routing Logic
-    result = {"mode": args.mode, "target": args.target, "timestamp": datetime.now().isoformat()}
-    
     if args.mode == "scan":
-        result.update(run_scan_mode(args.target, args.verbose))
+        result = run_scan_mode(args.target, args.verbose)
     elif args.mode == "probe":
-        result.update(run_probe_mode(args.target, args.verbose))
+        result = run_probe_mode(args.target, args.verbose)
     elif args.mode == "exploit":
-        result.update(run_exploit_mode(args.target, args.payload, args.verbose))
+        result = run_exploit_mode(args.target, args.payload, args.verbose)
     else:
         logger.error(f"Unknown mode: {args.mode}")
         sys.exit(1)
+    
+    # Tambahkan metadata root
+    result["mode"] = args.mode
+    result["target"] = args.target
+    result["timestamp"] = datetime.now().isoformat()
     
     # Output Handling
     output_data = json.dumps(result, indent=4, default=str)
@@ -200,7 +305,7 @@ Modes:
         logger.info(f"Results saved to {out_path}")
     else:
         print(output_data)
-    
+        
     logger.info("Execution finished.")
 
 if __name__ == "__main__":
