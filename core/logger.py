@@ -1,202 +1,80 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-logger.py - Logging Standar & Chain of Evidence (JSONL)
-Versi: 1.0.4
-Status: Production Ready / Offensive Safe
+core/logger.py - Centralized Logging Configuration
 """
 
-import json
-import os
-import sys
-import time
-import hashlib
 import logging
-from datetime import datetime, timezone
-from threading import Lock
-from typing import Optional, Dict, Any, Union
-from pathlib import Path
+import sys
+import os
+from datetime import datetime
 
+# Cache untuk menyimpan instance logger agar tidak duplikat
+_LOGGERS = {}
 
-class EvidenceHasher:
-    """Helper untuk menghitung hash SHA-256 dari payload atau data sensitif."""
+def setup_logger(log_file: str = None, verbose: bool = False) -> logging.Logger:
+    """
+    Setup logger utama (root logger) untuk aplikasi.
+    Digunakan oleh main.py.
+    """
+    level = logging.DEBUG if verbose else logging.INFO
     
-    @staticmethod
-    def calculate_hash(data: Union[str, bytes]) -> str:
-        if isinstance(data, str):
-            data = data.encode('utf-8')
-        return hashlib.sha256(data).hexdigest()
-
-
-class JSONLFormatter(logging.Formatter):
-    """Custom formatter untuk output JSONL yang terstruktur."""
+    # Format log
+    log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
     
-    def __init__(self, include_extra_fields: bool = True):
-        super().__init__()
-        self.include_extra_fields = include_extra_fields
-
-    def format(self, record: logging.LogRecord) -> str:
-        log_data = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "module": getattr(record, 'module', 'unknown'),
-            "action": getattr(record, 'action', 'generic'),
-            "target": getattr(record, 'target', None),
-            "risk_level": getattr(record, 'risk_level', 'low'),
-            "evidence_hash": getattr(record, 'evidence_hash', None),
-            "extra": {}
-        }
-
-        if self.include_extra_fields and hasattr(record, 'extra_dict'):
-            log_data["extra"].update(record.extra_dict)
-        
-        log_data = {k: v for k, v in log_data.items() if v is not None}
-        
-        return json.dumps(log_data, ensure_ascii=False, default=str)
-
-
-class ChainOfEvidenceLogger:
-    """
-    Logger utama untuk sistem BSSN Pentest.
-    Menyediakan logging standar sekaligus jejak forensik untuk setiap aksi.
-    """
+    # Konfigurasi root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
     
-    _instance = None
-    _lock = Lock()
+    # Hapus handler lama jika ada (mencegah duplikasi log)
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
+        
+    # Console Handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_formatter = logging.Formatter(log_format, date_format)
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
     
-    def __new__(cls, log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl"):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super(ChainOfEvidenceLogger, cls).__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self, log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl"):
-        if self._initialized:
-            return
-            
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file_path = self.log_dir / log_file_name
+    # File Handler (Opsional)
+    if log_file:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(level)
+        file_formatter = logging.Formatter(log_format, date_format)
+        file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(file_handler)
         
-        self.logger = logging.getLogger("BSSN_Evidence")
-        self.logger.setLevel(logging.DEBUG)
-        
-        if not self.logger.handlers:
-            # File Handler (JSONL)
-            file_handler = logging.FileHandler(self.log_file_path, mode='a', encoding='utf-8')
-            file_handler.setFormatter(JSONLFormatter(include_extra_fields=True))
-            self.logger.addHandler(file_handler)
-            
-            # Console Handler (Human-readable)
-            console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-            self.logger.addHandler(console_handler)
-            
-        self._initialized = True
-        self.logger.info(f"Logger initialized. Log file: {self.log_file_path}")
-
-    # =========================================================================
-    # METHOD WRAPPERS
-    # =========================================================================
-    def info(self, msg, *args, **kwargs):
-        self.logger.info(msg, *args, **kwargs)
-
-    def error(self, msg, *args, **kwargs):
-        self.logger.error(msg, *args, **kwargs)
-        
-    def warning(self, msg, *args, **kwargs):
-        self.logger.warning(msg, *args, **kwargs)
-        
-    def debug(self, msg, *args, **kwargs):
-        self.logger.debug(msg, *args, **kwargs)
-        
-    def critical(self, msg, *args, **kwargs):
-        self.logger.critical(msg, *args, **kwargs)
-    # =========================================================================
-
-    def log_event(
-        self, 
-        event_type: str, 
-        message: str, 
-        target: Optional[str] = None, 
-        risk_level: str = "low",
-        payload_data: Optional[Union[str, bytes]] = None,
-        extra: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        
-        entry = {
-            "event_type": event_type,
-            "message": message,
-            "target": target,
-            "risk_level": risk_level,
-            "payload_hash": None
-        }
-        
-        if payload_data:
-            try:
-                entry["payload_hash"] = EvidenceHasher.calculate_hash(payload_data)
-            except Exception as e:
-                entry["payload_hash_error"] = str(e)
-                
-        record_kwargs = {
-            'module': event_type,
-            'action': event_type,
-            'target': target,
-            'risk_level': risk_level,
-            'evidence_hash': entry.get('payload_hash')
-        }
-        
-        if extra:
-            record_kwargs['extra_dict'] = extra
-            
-        if risk_level == "critical":
-            log_level = logging.CRITICAL
-        elif risk_level == "high":
-            log_level = logging.ERROR
-        elif risk_level == "medium":
-            log_level = logging.WARNING
-        else:
-            log_level = logging.INFO
-            
-        record = self.logger.makeRecord(
-            self.logger.name,
-            log_level,
-            "(unknown file)",
-            0,
-            message,
-            (),
-            None
-        )
-        
-        for key, value in record_kwargs.items():
-            setattr(record, key, value)
-            
-        self.logger.handle(record)
-        
-        return entry
+    return root_logger
 
 
-# ==========================================
-# FUNGSI HELPER UNTUK IMPORT DI main.py
-# ==========================================
-def setup_logger(log_dir: str = "output/logs", log_file_name: str = "bssn_evidence.jsonl", verbose: bool = False) -> ChainOfEvidenceLogger:
+def get_logger(name: str) -> logging.Logger:
     """
-    Fungsi helper untuk menginisialisasi dan mengembalikan instance logger.
-    Ditambahkan parameter 'verbose' agar sesuai dengan pemanggilan di main.py.
+    Mendapatkan logger berdasarkan nama modul.
+    Digunakan oleh modul di dalam folder modules/.
     """
-    logger_instance = ChainOfEvidenceLogger(log_dir=log_dir, log_file_name=log_file_name)
+    if not name:
+        name = "BSSN_Default"
+        
+    if name in _LOGGERS:
+        return _LOGGERS[name]
+        
+    logger = logging.getLogger(name)
+    _LOGGERS[name] = logger
+    return logger
+
+
+def log_event(level: str, message: str, data: dict = None):
+    """
+    Helper untuk mencatat event dalam format terstruktur.
+    Digunakan oleh wp_core.py dan modul lainnya.
+    """
+    logger = get_logger("EventLogger")
+    lvl = getattr(logging, level.upper(), logging.INFO)
     
-    if verbose:
-        for handler in logger_instance.logger.handlers:
-            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                handler.setLevel(logging.DEBUG)
-                
-    return logger_instance
-
-def get_logger() -> ChainOfEvidenceLogger:
-    """
-    Fungsi helper untuk mendapatkan instance logger yang sudah ada.
-    """
-    return ChainOfEvidenceLogger()
+    if data:
+        logger.log(lvl, f"{message} | Data: {data}")
+    else:
+        logger.log(lvl, message)
