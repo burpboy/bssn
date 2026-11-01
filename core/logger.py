@@ -9,6 +9,7 @@ API publik:
     - log_event(level, message, data=None)      -> None
     - LoggerMixin                               -> class (mixin untuk .log())
     - Logger                                    -> alias LoggerMixin
+    - logger                                    -> instance default global
 """
 
 import logging
@@ -20,6 +21,9 @@ from datetime import datetime
 # Cache untuk menyimpan instance logger agar tidak duplikat
 _LOGGERS = {}
 
+# Flag untuk memastikan setup_logger hanya dijalankan sekali (idempotent)
+_SETUP_DONE = False
+
 
 # =====================================================================
 # Setup & Getter
@@ -28,7 +32,11 @@ def setup_logger(log_file: str = None, verbose: bool = False) -> logging.Logger:
     """
     Setup logger utama (root logger) untuk aplikasi.
     Digunakan oleh main.py.
+
+    Idempotent: pemanggilan berulang tidak akan menduplikasi handler.
     """
+    global _SETUP_DONE
+
     level = logging.DEBUG if verbose else logging.INFO
 
     # Format log
@@ -52,13 +60,16 @@ def setup_logger(log_file: str = None, verbose: bool = False) -> logging.Logger:
 
     # File Handler (Opsional)
     if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        log_dir = os.path.dirname(log_file)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
         file_formatter = logging.Formatter(log_format, date_format)
         file_handler.setFormatter(file_formatter)
         root_logger.addHandler(file_handler)
 
+    _SETUP_DONE = True
     return root_logger
 
 
@@ -141,6 +152,28 @@ Logger = LoggerMixin          # from core.logger import Logger
 getLogger = get_logger        # from core.logger import getLogger
 
 
+# =====================================================================
+# FIX: Logger default global (agar `from core.logger import logger` bekerja)
+# =====================================================================
+# Jika setup_logger() belum dipanggil, kita setup default minimal
+# supaya logger global tetap berfungsi (tidak silent / tidak error).
+if not _SETUP_DONE:
+    _root = logging.getLogger()
+    if not _root.hasHandlers():
+        _handler = logging.StreamHandler(sys.stdout)
+        _handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                "%Y-%m-%d %H:%M:%S",
+            )
+        )
+        _root.addHandler(_handler)
+        _root.setLevel(logging.INFO)
+
+# Ini dia variabel yang sebelumnya tidak ada → penyebab NameError
+logger = get_logger("BSSN_Default")
+
+
 def timestamp() -> str:
     """Kembalikan timestamp ISO-8601 saat ini."""
     return datetime.now().isoformat()
@@ -153,5 +186,6 @@ __all__ = [
     "log_event",
     "LoggerMixin",
     "Logger",
+    "logger",          # <-- tambahan penting
     "timestamp",
-    ]
+]
