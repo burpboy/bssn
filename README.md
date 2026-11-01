@@ -4,20 +4,6 @@ Panduan Lengkap Menjalankan CVE BSSN Toolkit Dari Dwi Joko Purwanto
 
 ---
 
-⚠️ PERINGATAN HUKUM & ETIKA
-
-Toolkit ini punya 3 mode, dan exploit adalah High Risk (RCE, SQLi, reverse shell via pwntools). Hanya jalankan pada:
-
-· Sistem milik sendiri
-· Lab terisolasi (VM tanpa akses internet)
-· Target dengan izin tertulis eksplisit (pentest engagement)
-
-Penggunaan tanpa izin = tindak pidana (UU ITE Pasal 30/46 di Indonesia, CFAA di AS, dll).
-
----
-
- Masalahnya ada dua: typo dan path.
-
 Berikut cara running yang benar :
 
 Langkah 1: Clone & Masuk Folder
